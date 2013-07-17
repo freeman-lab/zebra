@@ -1,0 +1,116 @@
+%  Generate 1/f^2 noise texture and save as .bmp image for fish
+%  appreciation
+% Written by MBA June 21 2013
+
+% generate_1overF_texture_01.m
+clear all
+
+sizx = 200;    % for example
+sizy = 200;
+sizt = 200;
+XX = [1:sizx (sizx-1):-1:1];
+YY = [1:sizy (sizy-1):-1:1];
+
+TT=[1:sizt (sizt-1):-1:1];
+
+D3 = zeros(2*sizx-1,2*sizy-1,2*sizt-1);
+scale_t = .02;
+for x = 1:2*sizx-1
+    x
+    for y = 1:2*sizy-1
+        t = 1:2*sizt-1;
+        D3(x,y,:) = XX(x)^3 + YY(y)^3 + TT(t).^3/scale_t;
+%        D3(x,y,:) = XX(x)^3 + YY(y)^3 + TT(t).^3/scale_t;
+    end
+end
+%D3=XX.^2+YY.^2;
+
+MF=randn(2*sizx,2*sizy,2*sizt)   ;
+NF=zeros(2*sizx,2*sizy,2*sizt);
+NF(2:end,2:end,2:end)=1./sqrt(D3);
+%S=real(ifft2(MF.*NF));
+S=real(ifftn(MF.*NF));
+%    MF = MF(:,:,1);
+%    NF = NF(:,:,2);
+%    S = real(ifftn(MF.*NF));
+
+Snorm = S-mean(S(:));
+Snorm = Snorm./ std(Snorm(:));
+
+Snorm = Snorm + 2;
+Snorm = Snorm .* (Snorm > 0) .* (Snorm <= 4) + 4*(Snorm > 4);
+Snorm = Snorm / 4 * 254 + 1;
+
+Snorm_extended = zeros(size(Snorm,1)*3,size(Snorm,2)*3,size(Snorm,3));
+for i = 1:size(Snorm,3)
+    Snorm_extended(:,:,i) = repmat(squeeze(Snorm(:,:,i)),3,3);
+end
+
+%%
+for i = 1:size(Snorm,3)
+    imagesc((squeeze(Snorm(:,:,i)')));
+        shading interp
+    pbaspect([1 1 .05]);
+    colormap gray
+    set(gcf,'color','k');
+    set(gca,'color','k');
+    pause(.016)
+end
+%%
+fInds = {};
+pad = numel(num2str(2*sizt-1));
+for i = 0:(2*sizt-1)
+        fInds{i+1} = [repmat('0',1,pad-numel(num2str(i))) num2str(i)];
+end
+
+figure;
+for i = 0:(2*sizt-1)
+    imout = ((Snorm_extended(:,:,i+1)'.^5/256^5));
+    imagesc(imout);
+    colormap gray
+    pause(.016)
+    imwrite(imout, ['C:\Dropbox\Davis\im\frames\' fInds{i+1} '.png'], 'png');
+end
+
+
+
+%%
+% phi is the range of orientations we want to show
+siz = 2*sizx;
+nImg = randn(siz,siz);
+phse = angle(fftshift(fft2(nImg)));
+phiRange = [-pi,pi];
+for i = 1:numel(phiRange)-1;
+phiMask = mkAngle(siz);
+phi = phiRange([i,i+1]);
+phiMask = phiMask > phi(1) & phiMask < phi(2);
+r = (mkDisc([siz, siz],25)) .* phiMask;
+imagesc(r);
+pause(.1);
+adjst = complex(r.*cos(phse),r.*sin(phse));
+imagesc(ifft2(ifftshift(adjst),'symmetric')); colormap hot;
+pause(1/60);
+end
+
+%%
+nImg = randn(sizx,sizy,sizt);
+phse = angle(fftshift(fftn(nImg)));
+phiMask = repmat(mkAngle([sizx,sizy]),[1,1,sizt]);
+phi = [-pi,0];
+phiMask = phiMask >phi(1) & phiMask < phi(2);
+r = [];
+tRamp = mkR([sizt, 1],1);
+for i = 1:sizt
+ % r(:,:,i) = mkDisc([sizx,sizy],(-(i-sizt/2).^2 + round(sizx/2).^2).^.5) .* phiMask(:,:,i);
+ % r(:,:,i) = (mkDisc([sizx, sizy],25)) .* phiMask(:,:,i) * (sizt/2-abs(i-sizt/2))/sizt/2;
+ r(:,:,i) = 1./(mkR([sizx, sizy],1) * tRamp(i)).* phiMask(:,:,i); 
+end
+adjst = complex(r.*cos(phse),r.*sin(phse));
+adjst = ifftn(ifftshift(adjst),'symmetric'); 
+%%
+for i = 1:sizt
+  imagesc(squeeze(adjst(:,:,i))',[min(adjst(:)), max(adjst(:))]);
+   set(gcf,'renderer','painters')
+  colormap(circshift(bone(1024),[0,1]));
+  pause(1/20);
+end
