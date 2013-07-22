@@ -1,6 +1,6 @@
 datdir = '';
 %%
-[infile, datdir] = uigetfile([datdir '/.10chflt'],'multiselect','on');
+[infile, datdir] = uigetfile([datdir '/.mat'],'multiselect','on');
 
 if ~iscell(infile)
     if ischar(infile)
@@ -12,19 +12,24 @@ if ~iscell(infile)
 end
 datdir
 %%
-fig{1} = figure(1);
-fig{2} = figure(2);
 clear groupStats
 for i = 1:numel(infile)
+    disp(['working on ' infile{i} ' file ' num2str(i) ' / ' num2str(numel(infile))]);
     try
+        
     fname = infile{i}(1:regexp(infile{i},'\.')-1);
     groupStats(i).fname = fname;
-    swim = load_10chFltFunc([datdir infile{i}]);
+    %%
+    swim = load([datdir, infile{i}]);
+    
+    clear swimData
+    
+    swim = swim.swim;
     fig = {};
     POW = [];
     isHI = [];
     isLO = [];
-    
+    bouts = {};
     expParams  =nan(2);
     expStats = [];
     bouts = {};
@@ -41,7 +46,6 @@ for i = 1:numel(infile)
     % Indicates quality of the channel
     qualChan = [1,1];
     chan = {'fltCh1','fltCh2'};
-        
    
     figParams.pos = [10 300 1850 700];
     figParams.col = 'w';
@@ -50,7 +54,7 @@ for i = 1:numel(infile)
     % * the values in stimparam1.
     velConv = -1200;
     % Print out some info about the experiment
-    
+    trLen = 19.9 * fs;        
     if numel(unique(swim.stimParam2(L/10:9*L/10))) == 2;
         expParams([1,2],1) = sort([mode(swim.stimParam2) mode(swim.stimParam2(swim.stimParam2~=mode(swim.stimParam2)))]);
         expParams(1,2) = velConv*mode(swim.stimParam1(swim.stimParam2 == expParams(1,1)));
@@ -60,15 +64,16 @@ for i = 1:numel(infile)
         expParams([1,2],1) = mode(swim.stimParam2);
         expParams([1,2],2) = velConv*sort([mode(swim.stimParam1) mode(swim.stimParam1(swim.stimParam1~=mode(swim.stimParam1)))]);
         % find the corners where the speed dropped
-        vel1 = find(swim.stimParam1 == expParams(1,2)/velConv);
-        vel2 = find(swim.stimParam1 == expParams(2,2)/velConv);
-        corners = {};
-        corners{1} = intersect(vel1+1,vel2);
-        if isempty(corners{1})
-            corners{1} = intersect(vel2+1,vel1);
-        end
-        trLen = median(diff(corners{1}))/2;
-        % find the other corners where the speed changed after being
+%         vel1 = find(swim.stimParam1 == expParams(1,2)/velConv);
+%         vel2 = find(swim.stimParam1 == expParams(2,2)/velConv);
+%         corners = {};
+%         corners{1} = intersect(vel1+1,vel2);
+%         if isempty(corners{1})
+%             corners{1} = intersect(vel2+1,vel1);
+%         end
+%         trLen = median(diff(corners{1}))/2;
+
+% find the other corners where the speed changed after being
         % constant for 3 samples
         corners{2} = find(swim.stimParam1(1:end-2) == swim.stimParam1(2:end-1) == swim.stimParam1(3:end));
         corners{2} = corners{2}(swim.stimParam1(corners{2}) ~= swim.stimParam1(corners{2}+1));
@@ -84,46 +89,47 @@ for i = 1:numel(infile)
         else
             qualChan = [1 0];
         end
+    
     end
     
     try
         swimData(1)=kickassSwimDetect01(swim.ch1,swim.ch1);
+        
     catch
         disp(['trouble with ' infile{i} ' on ch1'])
         expStats(1) = 0;
         qualChan(1) = 0;
-        
     end
+    
     try
         swimData(2)=kickassSwimDetect01(swim.ch2,swim.ch2);
+        
     catch
         disp(['trouble with ' infile{i} ' on ch2'])
         expStats(2) = 0;
         qualChan(2) = 0;
-       
     end
     
-    % calculate the mean swimming rate on each channel
-    expStats(1) = numel(swimData(1).swimStartIndT)/L/fs;
-    expStats(2) = numel(swimData(2).swimStartIndT)/L/fs;
-    groupStats(i).swimrate = expStats;        
     gain1 = expParams(2,1);
     gain2 = expParams(1,1);
     
     condStr = {['g ' num2str(expParams(2,1)) ', v ' num2str(expParams(2,2))], ['g ' num2str(expParams(1,1)) ', v ' num2str(expParams(1,2))]};
     
-    if diff(expParams(:,1)) > .01
+     if abs(diff(expParams(:,1))) > .001
         hi = double(swim.stimParam2 == gain1);
         lo = double(swim.stimParam2 == gain2);
-    else
-        continue
-    end    
+     else
+         expParams
+         disp('Moving to next file');
+         continue
+     end    
         
     if ishandle(1)
         set(0,'currentfigure',1);
     else
         figure(1)
     end
+    
     set(gcf,'position',figParams.pos);
     set(gcf,'color',figParams.col);
     clf
@@ -139,6 +145,7 @@ for i = 1:numel(infile)
     title('fltCh2')
     
     print(gcf,[datdir fname 'fltChSummary'],'-dpng','-noui','-r200');
+  
     if ishandle(2)
       set(0,'currentfigure',2);
       else
@@ -154,13 +161,13 @@ for i = 1:numel(infile)
     epochStarts((epochStarts+trLen) > L) = [];  
     groupStats(i).epochs = epochStarts;
     if numel(epochStarts) < trThresh
+        disp(['Not enough epochs in ' fname])
         continue
     end
     
     for p = find(qualChan);
-        
         % Bin bouts by trial
-        for g = 1:numel(epochStarts)
+        for g = 1:numel(epochStops)
             bouts{p}{g} = intersect(swimData(p).swimStartIndT,epochStarts(g):epochStops(g));
         end
         groupStats(i).bouts = bouts;
@@ -219,7 +226,7 @@ for i = 1:numel(infile)
             title(['Bout freq.']);
             
             % Plot probability of swimming, power as a function of time
-            
+         
             subplot(3,2,p+4)
 
             normBouts = [];
@@ -250,14 +257,19 @@ for i = 1:numel(infile)
             set(gca,'xlim',[0 (trLen/fs)/4]);
             hold off
             print(gcf,[datdir fname 'BoutSummary'],'-dpng','-noui','-r200');
+        else
+        disp(['Not enough bouts on ch ' num2str(p)])    
         end
+            
     end
     catch 
         disp(['trouble with ' infile{i}]);
         continue
     end
 end
-
+disp('Done with main loop')
+save([datdir 'groupStats'],'groupStats');
+disp(['Done saving ' datdir 'groupStats']);
 
 
 

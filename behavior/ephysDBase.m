@@ -1,5 +1,6 @@
-datdir = '';
 %%
+datdir = '';
+
 [infile, datdir] = uigetfile([datdir '/.10chflt'],'multiselect','on');
 
 if ~iscell(infile)
@@ -53,6 +54,6 @@ for i = 1:numel(infile)
         expParams(1,1), expParams(1,2),expParams(2,1),expParams(2,2),...
         expStats(1), expStats(2))
     
-    save([datdir fname '_preProc'],'swimData','swim','expParams','expStats')
+    save([datdir fname '_preProc'],'swim')
 end
 fclose(outfile);
