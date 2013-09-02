@@ -47,6 +47,7 @@ x1 = array([float(x) for x in lines_x1.collect()[0].split(' ')])
 x2 = array([float(x) for x in lines_x2.collect()[0].split(' ')])
 Y = lines_Y.map(parseVector).cache()
 n = len(x1)
+print "Length is %d\n" %(len)
 
 # compute sta
 for lag in lags:
