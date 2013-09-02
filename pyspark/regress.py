@@ -64,4 +64,4 @@ for lag in lags:
 	savemat(outputFile+"/"+"b12-lag-"+nm+".mat",mdict={'b12':betas.map(lambda x : x[3]).collect()},oned_as='column',do_compression='true')
 	savemat(outputFile+"/"+"r2-lag-"+nm+".mat",mdict={'r2':betas.map(lambda x : x[4]).collect()},oned_as='column',do_compression='true')
 
-print "Length is %d\n" %(len)
+print "Length is %d\n" %(n)
