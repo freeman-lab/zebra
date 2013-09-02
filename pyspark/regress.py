@@ -47,7 +47,6 @@ x1 = array([float(x) for x in lines_x1.collect()[0].split(' ')])
 x2 = array([float(x) for x in lines_x2.collect()[0].split(' ')])
 Y = lines_Y.map(parseVector).cache()
 n = len(x1)
-print "Length is %d\n" %(len)
 
 # compute sta
 for lag in lags:
@@ -64,3 +63,5 @@ for lag in lags:
 	savemat(outputFile+"/"+"b2-lag-"+nm+".mat",mdict={'b2':betas.map(lambda x : x[2]).collect()},oned_as='column',do_compression='true')
 	savemat(outputFile+"/"+"b12-lag-"+nm+".mat",mdict={'b12':betas.map(lambda x : x[3]).collect()},oned_as='column',do_compression='true')
 	savemat(outputFile+"/"+"r2-lag-"+nm+".mat",mdict={'r2':betas.map(lambda x : x[4]).collect()},oned_as='column',do_compression='true')
+
+print "Length is %d\n" %(len)
