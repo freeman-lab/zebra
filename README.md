@@ -1,4 +1,4 @@
 zebra
 =====
 
-Analysis code for whole-brain calcium imaging of the zebra fish
+Analysis code and example iPython notebooks for analyzing zebrafish imaging data
