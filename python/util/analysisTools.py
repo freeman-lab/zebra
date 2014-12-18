@@ -109,21 +109,12 @@ def kernelMatrix1(timeSeries,maxLag,maxLead=0):
     lagPadding = np.squeeze(np.zeros((1,maxLag)))
     leadPadding = np.squeeze(np.zeros((1,maxLag)))
     w = np.hstack((lagPadding,timeSeries,leadPadding))
-    n = w.size
-    m = maxLag + 1 + maxLead
-    mat = np.zeros((n-m+1,m))
-    for i in np.arange(0,m):
-        mat[:,i] = w[i:n-m+i+1]
-    return mat.T
-
-# make regression matrix without zero padding (need to remove the first maxLag points from target time-series)
-def kernelMatrix2(timeSeries,maxLag,maxLead=0):
     n = timeSeries.size
     m = maxLag + 1 + maxLead
-    mat = np.zeros((n-m,m))
+    mat = np.zeros((m,n))
     for i in np.arange(0,m):
-        mat[:,i] = np.squeeze(timeSeries[i:n-m+i])
-    return mat.T
+        mat[i,:] = w[i:i+n]
+    return mat
 
 # fit a linear kernel model
 def fitKernel(input, response, maxLag, maxLead=0): 
@@ -133,7 +124,7 @@ def fitKernel(input, response, maxLag, maxLead=0):
     return model.fit(response)
 
 #-----------------------------------------------------------------------------
-# function to get all records with a given kmeans label
+# functions to get all records with a given kmeans label
 
 # WARNING:: this function will cache the results, which effectively take up as much room as the original Series again!
 def getAllByLabel(data, labels):
@@ -160,3 +151,8 @@ def getAllMeansByLabel(data,labels):
 
 def reduceByLabel(data,labels,function):
     return Series(data.rdd.join(labels.rdd).map(lambda (k,v):(v[1],v[0])).reduceByKey(function))
+
+
+#-------------------------------------------------------------------------------
+# a class-based implementation of the linear kernel model
+
