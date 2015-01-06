@@ -6,7 +6,7 @@ from thunder import RegressionModel, Series
 #----------------------------------------------------------------------------------------------
 # functions for cross-sectional plots of 3d data
 
-def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', cmap='Blues'):
+def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', color='axis3', cmap='Blues_r'):
     
     # compute max and min values if not already given
     if limits=='None':
@@ -19,32 +19,37 @@ def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', cmap='Blues')
     # easier names for which indices server what purpose
     xInd = axes[0]
     yInd = axes[1]
-    colorInd = axes[2]
+    if color=='axis3':
+        colorInd = axes[2]
         
     # compute axis limits
     offsets = (margin/(1.0-margin))*((maxVals-minVals)/2)
     axisMin = minVals-offsets
     axisMax = maxVals+offsets
+
+    # compute colors
+    if color=='axis3':
+        color=pts[:,colorInd]
     
     # generate plot
-    plt.scatter(pts[:,xInd], pts[:,yInd], c=pts[:,colorInd], cmap=cmap)
+    plt.scatter(pts[:,xInd], pts[:,yInd], c=color, cmap=cmap)
     plt.xlim([minVals[xInd]-offsets[xInd],maxVals[xInd]+offsets[xInd]])
     plt.ylim([minVals[yInd]-offsets[yInd],maxVals[yInd]+offsets[yInd]])
 
 
-def crossSectionFigure(pts, margin=0.1, inset='None', limits='None', cmap='Blues_r'):
+def crossSectionFigure(pts, margin=0.1, inset='None', limits='None', color='axis3', cmap='Blues_r'):
         
     # plot the x-y view (top-down)
     plt.subplot2grid((3,5),(0,0),rowspan=2,colspan=4)
-    crossSectionPlot(pts, axes=(0,1,2), margin=margin, limits=limits, cmap=cmap)
+    crossSectionPlot(pts, axes=(0,1,2), margin=margin, limits=limits, color=color, cmap=cmap)
 
     # plot the y-z view (head-on)
     plt.subplot2grid((3,5),(0,4),rowspan=2,colspan=1)
-    crossSectionPlot(pts, axes=(2,1,2), margin=margin, limits=limits, cmap=cmap)
+    crossSectionPlot(pts, axes=(2,1,2), margin=margin, limits=limits, color=color, cmap=cmap)
     
     # plot the x-z view (side-on)
     plt.subplot2grid((3,5),(2,0),rowspan=1,colspan=4)
-    crossSectionPlot(pts, axes=(0,2,2), margin=margin, limits=limits, cmap=cmap)
+    crossSectionPlot(pts, axes=(0,2,2), margin=margin, limits=limits, color=color, cmap=cmap)
 
     if inset == 'None':
         pass    
@@ -56,7 +61,7 @@ def crossSectionFigure(pts, margin=0.1, inset='None', limits='None', cmap='Blues
         #error msg here
     
 
-def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', cmap='Blues_r'):
+def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', color='axis3', cmap='Blues_r' ):
     
     #compute the number of clusters
     minLabel = np.min(labels)
@@ -72,7 +77,7 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', cma
             break
         fig.clf()
     
-        crossSectionFigure(pts[labels==i,:], margin=margin, limits=limits, cmap=cmap)
+        crossSectionFigure(pts[labels==i,:], margin=margin, limits=limits, color=color, cmap=cmap)
         if ( type(inset) is np.ndarray ) and ( len(inset.shape) == 2 ) and ( inset.shape[0] == max(labels)+1 ):
             plt.subplot2grid((3,5),(2,4))
             otherIdx = np.hstack((np.arange(i),np.arange(i+1,nClusters))).astype('int')
@@ -118,10 +123,18 @@ def kernelMatrix1(timeSeries,maxLag,maxLead=0):
 
 # fit a linear kernel model
 def fitKernel(input, response, maxLag, maxLead=0): 
-    #INSERT TYPE-CHECKING IN INPUT VARIABLES HERE
     regressionMat = kernelMatrix(input, maxLag, maxLead)
     model = RegressionModel.load(regressionMat, "linear")   
     return model.fit(response)
+
+# helper function that performs confoluction on a single record
+def convolve1(timeSeries,kernel,maxLead=0):
+    maxLag = len(kernel) - maxLead - 1
+    matrix = kernelMatrix(timeSeries,maxLag,maxLead)
+    model =  RegressionModel.load(matrix, "multiply")
+    return model.fit(kernel)
+
+#def convolve(data,kernels,maxLead=0)
 
 #-----------------------------------------------------------------------------
 # functions to get all records with a given kmeans label
@@ -152,6 +165,30 @@ def getAllMeansByLabel(data,labels):
 def reduceByLabel(data,labels,function):
     return Series(data.rdd.join(labels.rdd).map(lambda (k,v):(v[1],v[0])).reduceByKey(function))
 
+#------------------------------------------
+# functions for combining data across trials
+
+# reshape a time series into a matrix with one trial per line
+def reshapeByTrial(timeSeries,trialLen):
+    L = len(timeSeries)
+    nTrials = L/trialLen
+
+    # remove an partial trial at the end of the time series
+    timeSeries = timeSeries[:-(L%trialLen)]
+    
+    # reshape as matrix
+    return np.reshape(timeSeries,(nTrials,trialLen))
+    
+# combine data across trials through a given function (e.g. mean,std)
+def applyAcrossTrials(f,timeSeries,trialLen):
+    return np.apply_along_axis(f,0,reshapeByTrial(timeSeries,trialLen))
+
+# utility functions for common ways of combining data across trials
+def trialAverage(timeSeries,trialLen):
+    return applyAcrossTrials(np.mean,timeSeries,trialLen)
+
+def trialStd(timeSeries,trialLen):
+    return applyAcrossTrials(np.std,timeSeries,trialLen)
 
 #-------------------------------------------------------------------------------
 # a class-based implementation of the linear kernel model
