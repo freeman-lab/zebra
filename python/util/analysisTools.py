@@ -1,7 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython import display
-from thunder import RegressionModel, Series
+from itertools import product
+from copy import deepcopy
+from collections import Iterable
+
+try:
+    from thunder import RegressionModel, Series
+except:
+    print "WARNING: thunder could be be loaded from 'personal'"
 
 #----------------------------------------------------------------------------------------------
 # functions for cross-sectional plots of 3d data
@@ -191,5 +198,68 @@ def trialStd(timeSeries,trialLen):
     return applyAcrossTrials(np.std,timeSeries,trialLen)
 
 #-------------------------------------------------------------------------------
-# a class-based implementation of the linear kernel model
+# functions to deal with TimeSeries with a heirarchical orgainizational structure
+# AKA: a slap-dash version of MultiIndexing from Pandas
+
+def makeMultiIndex(array):
+    levels = product(*[np.unique(array[i,:]) for i in xrange(len(array))])
+    levels = [l for l in levels]
+    index = zip(*array)
+    return index, levels
+
+def reshapeByIndex(data, index, levels):
+    full =  [(np.array([data[x] for x in xrange(len(data)) if index[x]==l]), l) for l in levels]
+    array, index = zip(*[x for x in full if x[0].size != 0])
+    return array, index
+
+#def aggregrateByGroup(data,index,level,function):
+#    array, ind = reshapeByIndex(data, *makeMultiIndex(index[:level+1,:]))
+#    return np.apply_along_axis(function, 1, array), np.squeeze(np.array(zip(*ind)))
+
+def aggregrateByGroup(data, index, level, function, keep_structure=True):
+    if type(level) is int or len(level)==1:
+        if keep_structure:
+            ind = index[:level+1]
+        else:
+            ind = np.array([index[level]])
+    else:
+        ind = index[level]
+    array, inds = reshapeByIndex(data, *makeMultiIndex(ind))
+    array = map(function, array)
+    print array 
+    print inds
+
+def selectByGroup(data, index, level, val):
+    if not isinstance(val, Iterable):
+        val = [val]
+    if not isinstance(level, Iterable):
+        level = [level]
+
+    remove = []
+    for i in xrange(len(val)):
+        if not isinstance(val[i], Iterable):
+            val[i] = [val[i]]
+            remove.append(level[i])
+    
+    p = product(*val)
+    s = set([x for x in p])
+
+    array, ind = reshapeByIndex(data, *makeMultiIndex(index))
+    ind = np.array(ind)
+    array, ind = zip(*[(array[i], ind[i]) for i in xrange(ind.shape[0]) if tuple(ind[i,level]) in s])
+    array = np.concatenate(array)
+    ind = np.squeeze(np.delete(np.array(ind).T, remove, axis=0))
+    return array, ind
+
+    
+def selectByGroup2(data,index,level,val):
+    if type(val) is int:
+        values = set([val])
+    else:
+        values = set(val)
+    array, ind = reshapeByIndex(data, *makeMultiIndex(index[:level+1,:]))
+    array, ind =  zip(*[(array[i], ind[i]) for i in xrange(len(array)) if ind[i][-1] in values])
+    if type(val) is int or len(val)==1:
+        ind = zip(*zip(*ind)[:-1])
+    return np.array(array), ind
 
