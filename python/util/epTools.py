@@ -30,7 +30,7 @@ def stackInits(frameCh,thrMag=3.8,thrDur=10):
     
     stackInits = np.where(frameCh > thrMag)[0]
     initDiffs = np.where(np.diff(stackInits) > 1)[0]
-    initDiffs = np.concatenate(([0], initDiffs))    
+    initDiffs = np.concatenate(([0], initDiffs+1))    
     stackInits = stackInits[initDiffs]
     keepers = np.concatenate((np.where(np.diff(stackInits) > thrDur)[0], [stackInits.size-1]))
     stackInits = stackInits[keepers]
