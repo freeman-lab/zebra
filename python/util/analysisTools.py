@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
+from matplotlib.colors import Normalize
 import numpy as np
 from IPython import display
 from itertools import product
 from copy import deepcopy
 from collections import Iterable
+from sklearn.neighbors import NearestNeighbors
 
 try:
     from thunder import RegressionModel, Series
@@ -13,7 +16,7 @@ except:
 #----------------------------------------------------------------------------------------------
 # functions for cross-sectional plots of 3d data
 
-def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', color='axis3', cmap='Blues_r'):
+def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', color='axis3', cmap='Blues_r', negcmap=None,  alpha=None):
     
     # compute max and min values if not already given
     if limits=='None':
@@ -23,7 +26,7 @@ def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', color='axis3'
         maxVals = np.asarray(limits.max)
         minVals = np.asarray(limits.min)
         
-    # easier names for which indices server what purpose
+    # easier names for which indices serve which purpose
     xInd = axes[0]
     yInd = axes[1]
     if color=='axis3':
@@ -34,29 +37,51 @@ def crossSectionPlot(pts, axes=(0,1,2), margin=0.1, limits='None', color='axis3'
     axisMin = minVals-offsets
     axisMax = maxVals+offsets
 
-    # compute colors
+    # special case where coloring by z-axis
     if color=='axis3':
         color=pts[:,colorInd]
+
+    # get colors/alphas
+    if negcmap is None:
+        if type(cmap) is np.ndarray:
+            c = np.array([cmap[x] for x in color]) 
+        else:
+            cmap = get_cmap(cmap)
+            norm = Normalize(min(color), max(color))
+            c = cmap(norm(color))
+    else:
+        cmapPos, cmapNeg  = get_cmap(cmap), get_cmap(negcmap)
+        pos, neg = np.where(color>=0)[0], np.where(color<0)[0]
+        colorPos, colorNeg = color[pos], -color[neg]
+        c = np.zeros((color.shape[0],4))
+        if pos.size != 0:
+            normPos = Normalize(0, max(colorPos))
+            c[pos,:] = cmapPos(normPos(colorPos))
+        if neg.size != 0:
+            normNeg = Normalize(0, max(colorNeg))
+            c[neg,:] = cmapNeg(normNeg(colorNeg))
+    if alpha is not None:
+        c[:,3] = alpha 
     
     # generate plot
-    plt.scatter(pts[:,xInd], pts[:,yInd], c=color, cmap=cmap)
+    plt.scatter(pts[:,xInd], pts[:,yInd], c=c, lw=0)
     plt.xlim([minVals[xInd]-offsets[xInd],maxVals[xInd]+offsets[xInd]])
     plt.ylim([minVals[yInd]-offsets[yInd],maxVals[yInd]+offsets[yInd]])
 
 
-def crossSectionFigure(pts, margin=0.1, inset='None', limits='None', color='axis3', cmap='Blues_r'):
+def crossSectionFigure(pts, margin=0.1, inset='None', limits='None', color='axis3', cmap='Blues_r', negcmap=None):
         
     # plot the x-y view (top-down)
     plt.subplot2grid((3,5),(0,0),rowspan=2,colspan=4)
-    crossSectionPlot(pts, axes=(0,1,2), margin=margin, limits=limits, color=color, cmap=cmap)
+    crossSectionPlot(pts, axes=(0,1,2), margin=margin, limits=limits, color=color, cmap=cmap, negcmap=negcmap)
 
     # plot the y-z view (head-on)
     plt.subplot2grid((3,5),(0,4),rowspan=2,colspan=1)
-    crossSectionPlot(pts, axes=(2,1,2), margin=margin, limits=limits, color=color, cmap=cmap)
+    crossSectionPlot(pts, axes=(2,1,2), margin=margin, limits=limits, color=color, cmap=cmap, negcmap=negcmap)
     
     # plot the x-z view (side-on)
     plt.subplot2grid((3,5),(2,0),rowspan=1,colspan=4)
-    crossSectionPlot(pts, axes=(0,2,2), margin=margin, limits=limits, color=color, cmap=cmap)
+    crossSectionPlot(pts, axes=(0,2,2), margin=margin, limits=limits, color=color, cmap=cmap, negcmap=negcmap)
 
     if inset == 'None':
         pass    
@@ -68,7 +93,7 @@ def crossSectionFigure(pts, margin=0.1, inset='None', limits='None', color='axis
         #error msg here
     
 
-def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', color='axis3', cmap='Blues_r' ):
+def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', color='axis3', cmap='Blues_r', negcmap=None):
     
     #compute the number of clusters
     minLabel = np.min(labels)
@@ -84,7 +109,7 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', col
             break
         fig.clf()
     
-        crossSectionFigure(pts[labels==i,:], margin=margin, limits=limits, color=color, cmap=cmap)
+        crossSectionFigure(pts[labels==i,:], margin=margin, limits=limits, color=color, cmap=cmap, negcmap=negcmap)
         if ( type(inset) is np.ndarray ) and ( len(inset.shape) == 2 ) and ( inset.shape[0] == max(labels)+1 ):
             plt.subplot2grid((3,5),(2,4))
             otherIdx = np.hstack((np.arange(i),np.arange(i+1,nClusters))).astype('int')
@@ -216,18 +241,14 @@ def reshapeByIndex(data, index, levels):
 #    array, ind = reshapeByIndex(data, *makeMultiIndex(index[:level+1,:]))
 #    return np.apply_along_axis(function, 1, array), np.squeeze(np.array(zip(*ind)))
 
-def aggregrateByGroup(data, index, level, function, keep_structure=True):
+def aggregrateByGroup(data, index, level, function):
     if type(level) is int or len(level)==1:
-        if keep_structure:
-            ind = index[:level+1]
-        else:
-            ind = np.array([index[level]])
+        ind = np.array([index[level]])
     else:
         ind = index[level]
     array, inds = reshapeByIndex(data, *makeMultiIndex(ind))
-    array = map(function, array)
-    print array 
-    print inds
+    array = np.array(map(function, array))
+    return array, inds
 
 def selectByGroup(data, index, level, val):
     if not isinstance(val, Iterable):
@@ -263,3 +284,26 @@ def selectByGroup2(data,index,level,val):
         ind = zip(*zip(*ind)[:-1])
     return np.array(array), ind
 
+#------------------------------------------------------------
+# functionf for "spotlight" (i.e. nearest-neighbor) analyses
+
+def reshapeByNN(series, k):
+
+    keys = series.keys().collect()
+    key_array = np.array(keys)
+    dist, idx = NearestNeighbors(n_neighbors=k, metric='euclidean', algorithm='auto').fit(key_array).kneighbors(key_array)
+    
+    nbr = [ [] for x in xrange(idx.shape[0])]
+    it = np.nditer(idx, flags=['multi_index'])
+    for x in it:
+        nbr[x].append(it.multi_index[0])
+
+    def f(x):
+        k,v = x[0], x[1]
+        i = keys.index(k)
+        return [(n, v) for n in nbr[i]]
+
+    return series.rdd.flatMap(f).groupByKey().map(lambda (k,v): (keys[k], np.array(v.data)))
+
+def meanNN(series, k):
+    return Series(reshapeByNN(series, k).mapValues(lambda v: np.mean(v, axis=0)), index=series.index).__finalize__(series, noPropagate=('dype', 'index'))
