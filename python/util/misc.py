@@ -19,7 +19,6 @@ def getExecutorStatus(driver=None):
         if idx[-1] == -1:
             break
     idx = idx[1:-1]
-    print html[idx[0]:idx[0]+300]
     hostnames = empty(idx.shape[0], dtype='S100')
     for i in xrange(idx.shape[0]):
         h = html[idx[i]-7:idx[i]-1]
