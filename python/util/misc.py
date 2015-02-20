@@ -19,6 +19,7 @@ def getExecutorStatus(driver=None):
         if idx[-1] == -1:
             break
     idx = idx[1:-1]
+    print html[idx[0]:idx[0]+300]
     hostnames = empty(idx.shape[0], dtype='S100')
     for i in xrange(idx.shape[0]):
         h = html[idx[i]-7:idx[i]-1]
@@ -27,6 +28,7 @@ def getExecutorStatus(driver=None):
 
     # get status
     status = empty(idx.shape[0], dtype='S100')
+    memory = empty(idx.shape[0], dtype='S100')
     for i in xrange(idx.shape[0]):
         k = html.find(hostnames[i] + "</td>")
         k1 = html.find("<td>", k+35)
@@ -34,10 +36,15 @@ def getExecutorStatus(driver=None):
         kstart = k1+4
         kstop = k2
         status[i] = html[kstart:kstop]
+        k1 = html.find('<td>', k2)
+        k2 = html.find('</td>', k1)
+        kstart = k1+4
+        kstop = k2
+        memory[i] = html[kstart:kstop]
     
     # print results
     for i in xrange (idx.shape[0]):
-        print hostnames[i] + '\t' + status[i]
+        print hostnames[i] + '\t' + status[i] + '\t' + memory[i]
 
     return status
 
