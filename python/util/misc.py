@@ -1,6 +1,6 @@
-def getExecutorStatus(driver=None):
+def getClusterStatus(driver=None):
     from urllib2 import urlopen
-    from numpy import array, append, empty
+    from numpy import array, append, empty, sum
     from os.path import expanduser
 
     if driver is None:
@@ -25,7 +25,7 @@ def getExecutorStatus(driver=None):
         p = html[idx[i]+16:idx[i]+21]
         hostnames[i] = h + ".int.janelia.org:" + p
 
-    # get status
+    # get data 
     status = empty(idx.shape[0], dtype='S100')
     memory = empty(idx.shape[0], dtype='S100')
     for i in xrange(idx.shape[0]):
@@ -40,11 +40,24 @@ def getExecutorStatus(driver=None):
         kstart = k1+4
         kstop = k2
         memory[i] = html[kstart:kstop]
-    
+
+    # compute total memory
+    total = empty(idx.shape[0], dtype='float')
+    used = empty(idx.shape[0], dtype='float')
+    for i in xrange(idx.shape[0]):
+        k1 = memory[i].find(" ")
+        total[i] =  memory[i][:k1] 
+        k2 = memory[i].find("(", k1)
+        k3 = memory[i].find(" ", k2)
+        used[i] = float(memory[i][k2+1:k3])
+    totalUsed = sum(used)
+    totalAvailable= sum(total)
+    perc = 100.0*totalUsed/totalAvailable
+
     # print results
     for i in xrange (idx.shape[0]):
         print hostnames[i] + '\t' + status[i] + '\t' + memory[i]
-
+    print 'total used: {} out of {} ({}%)'.format(totalUsed, totalAvailable, perc)
     return status
 
 if __name__ == '__main__':
