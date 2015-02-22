@@ -61,4 +61,4 @@ def getClusterStatus(driver=None):
     return status
 
 if __name__ == '__main__':
-    getExecutorStatus()
+    getClusterStatus()
