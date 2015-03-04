@@ -133,40 +133,76 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', col
 
 #-------------------------------------------------------------------------------------------
 # functions to fit a linear kernel
+# TODO:
+# - add option to not use an instantaneous term in the kernels
+# - extend to handle multiple kernels with different maxLag, maxLead, and/or instantaneous choice
 
-# make a regression matrix with an arbirary number of inputs
-def kernelMatrix(timeSeries,maxLag,maxLead=0):
-    nInputs = timeSeries.shape[1]
-    l = [kernelMatrix1(timeSeries[:,i],maxLag,maxLead) for i in np.arange(nInputs)]
-    return np.vstack(l)
+# get continuous pieces of a series as denoted by a boolean mask
+def getPieces(a):
+    a = np.insert(a, 0, False)
+    a = np.insert(a, a.shape[0], False)
+    indStart = np.where(np.logical_and(np.logical_not(a[:-1]), a[1:]))[0]
+    indStop = np.where(np.logical_and(a[:-1], np.logical_not(a[1:])))[0]
+    #return indStart, indStop
+    return [np.arange(indStart[i], indStop[i]) for i in xrange(indStart.shape[0])]
 
-# make regression matrix with zero padding to predict first element (no need to change target time-series)
-def kernelMatrix1(timeSeries,maxLag,maxLead=0):
-    timeSeries = np.squeeze(timeSeries)
-    lagPadding = np.squeeze(np.zeros((1,maxLag)))
-    leadPadding = np.squeeze(np.zeros((1,maxLag)))
-    w = np.hstack((lagPadding,timeSeries,leadPadding))
-    n = timeSeries.size
-    m = maxLag + 1 + maxLead
-    mat = np.zeros((m,n))
-    for i in np.arange(0,m):
-        mat[i,:] = w[i:i+n]
-    return mat
+# cast kernel fitting for a single explanatory variable into a regression problem
+def kerToReg1(x, maxLag, maxLead=0, padding=False, mask=None):
+
+    N = x.shape[0]
+
+    # default mask uses all values
+    if mask is None:
+        mask = np.ones(N).astype('bool')
+
+    # find continuous pieces within mask
+    #indStart, indStop = getPieces(mask)
+    inds = getPieces(mask)
+    nPieces = len(inds)
+    xPieces = [x[inds[i]] for i in xrange(nPieces)]
+
+    # if padding, add zeros for computating esitmates near the ends
+    if padding:
+        leftPad = np.zeros(maxLag) 
+        rightPad = np.zeros(maxLead)
+        xPieces = [np.concatenate((leftPad, piece, rightPad)) for piece in xPieces]
+    
+    # create regression matrix
+    kerLen = maxLag + 1 + maxLead
+    nvals = np.array([piece.shape[0]-kerLen+1 for piece in xPieces])
+    mat = np.array([np.concatenate([xPieces[j][i:i+nvals[j]] for j in xrange(nPieces)]) for i in xrange(kerLen)])
+    
+    # create mask for y-values that will be used in fitting the model
+    # if not using padding, get restriced output values
+    yMask = np.zeros(N).astype('bool')
+    if not padding:
+        yInds = [idxs[maxLag:idxs.shape[0]-maxLead] for idxs in inds]
+        #yOut = np.concatenate([piece[maxLag:piece.shape[0]-maxLead] for piece in yPieces])
+    else:
+        yInds = inds
+        #yOut = np.concatenate([piece for piece in yPieces])
+    yMask[np.concatenate(yInds)] = True
+
+    return mat, yMask
+
+# cast kernel fitting into a regression problem
+def kerToReg(x, maxLag, maxLead=0, padding=False, mask=None):
+
+    x = np.array(x, ndmin=2)
+
+    nkers = x.shape[0]
+    regMats, yMasks = zip(*[kerToReg1(x[i], maxLag, maxLead, padding, mask) for i in xrange(nkers)])
+
+    return np.vstack(regMats), yMasks[0]
 
 # fit a linear kernel model
-def fitKernel(input, response, maxLag, maxLead=0): 
-    regressionMat = kernelMatrix(input, maxLag, maxLead)
-    model = RegressionModel.load(regressionMat, "linear")   
-    return model.fit(response)
-
-# helper function that performs confoluction on a single record
-def convolve1(timeSeries,kernel,maxLead=0):
-    maxLag = len(kernel) - maxLead - 1
-    matrix = kernelMatrix(timeSeries,maxLag,maxLead)
-    model =  RegressionModel.load(matrix, "multiply")
-    return model.fit(kernel)
-
-#def convolve(data,kernels,maxLead=0)
+def fitKernel(x, y, maxLag, maxLead=0, padding=False, mask=None): 
+    
+    regMat, yMask = kerToReg(x, maxLag, maxLead, padding, mask)
+    model = RegressionModel.load(regMat, "linear")   
+    #TODO: when Series.selectByIndex is available, it should be used here instead of Series.applyValues
+    yMasked = y.applyValues(lambda v: v[yMask])
+    return model.fit(yMasked)
 
 #-----------------------------------------------------------------------------
 # functions to get all records with a given kmeans label
