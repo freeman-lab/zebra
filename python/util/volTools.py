@@ -48,7 +48,29 @@ def getStackData(rawPath, frameNo=0):
     im = im.reshape(dims[-1::-1])
     return im
 
-""" Tools for viewing and manipulating volumetric data"""
+def volumeMask(vol):
+    """
+    :param vol: a 3-dimensional numpy array
+    :return: mask, a binary mask with the same shape as vol, and mCoords, a list of (x,y,z) indices representing the
+    masked coordinates.
+    """
+    from numpy import array, where
+    from scipy.signal import medfilt2d
+    from skimage.filter import threshold_otsu
+    from skimage import morphology as morph
+
+    filtVol = array([medfilt2d(x.astype('float32')) for x in vol])
+
+    thr = threshold_otsu(filtVol.ravel())
+    mask = filtVol > thr
+    strel = morph.selem.disk(3)
+    mask = array([morph.binary_closing(x, strel) for x in mask])
+    mask = array([morph.binary_opening(x, strel) for x in mask])
+
+    z, y, x = where(mask)
+    mCoords = zip(x, y, z)
+
+    return mask, mCoords
 
 def projFigure(vol, limits, plDims=[16,10,5], zscale=5, colors='gray', title=None):
      
