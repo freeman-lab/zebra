@@ -258,70 +258,9 @@ def trialAverage(timeSeries,trialLen):
 def trialStd(timeSeries,trialLen):
     return applyAcrossTrials(np.std,timeSeries,trialLen)
 
-#-------------------------------------------------------------------------------
-# functions to deal with TimeSeries with a heirarchical orgainizational structure
-# AKA: a slap-dash version of MultiIndexing from Pandas
-
-def makeMultiIndex(array):
-    levels = product(*[np.unique(array[i,:]) for i in xrange(len(array))])
-    levels = [l for l in levels]
-    index = zip(*array)
-    return index, levels
-
-def reshapeByIndex(data, index, levels):
-    full =  [(np.array([data[x] for x in xrange(len(data)) if index[x]==l]), l) for l in levels]
-    array, index = zip(*[x for x in full if x[0].size != 0])
-    return array, index
-
-#def aggregrateByGroup(data,index,level,function):
-#    array, ind = reshapeByIndex(data, *makeMultiIndex(index[:level+1,:]))
-#    return np.apply_along_axis(function, 1, array), np.squeeze(np.array(zip(*ind)))
-
-def aggregrateByGroup(data, index, level, function):
-    if type(level) is int or len(level)==1:
-        ind = np.array([index[level]])
-    else:
-        ind = index[level]
-    array, inds = reshapeByIndex(data, *makeMultiIndex(ind))
-    array = np.array(map(function, array))
-    return array, inds
-
-def selectByGroup(data, index, level, val):
-    if not isinstance(val, Iterable):
-        val = [val]
-    if not isinstance(level, Iterable):
-        level = [level]
-
-    remove = []
-    for i in xrange(len(val)):
-        if not isinstance(val[i], Iterable):
-            val[i] = [val[i]]
-            remove.append(level[i])
-    
-    p = product(*val)
-    s = set([x for x in p])
-
-    array, ind = reshapeByIndex(data, *makeMultiIndex(index))
-    ind = np.array(ind)
-    array, ind = zip(*[(array[i], ind[i]) for i in xrange(ind.shape[0]) if tuple(ind[i,level]) in s])
-    array = np.concatenate(array)
-    ind = np.squeeze(np.delete(np.array(ind).T, remove, axis=0))
-    return array, ind
-
-    
-def selectByGroup2(data,index,level,val):
-    if type(val) is int:
-        values = set([val])
-    else:
-        values = set(val)
-    array, ind = reshapeByIndex(data, *makeMultiIndex(index[:level+1,:]))
-    array, ind =  zip(*[(array[i], ind[i]) for i in xrange(len(array)) if ind[i][-1] in values])
-    if type(val) is int or len(val)==1:
-        ind = zip(*zip(*ind)[:-1])
-    return np.array(array), ind
 
 #------------------------------------------------------------
-# functionf for "spotlight" (i.e. nearest-neighbor) analyses
+# functions for "spotlight" (i.e. nearest-neighbor) analyses
 
 def reshapeByNN(series, k):
 
