@@ -136,20 +136,26 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', col
 
 class RegressionModel():
 
-    def __init__(self, type='ols'):
+    def __init__(self, type='ols', constant=True):
         self.type = type
+        self.constant = True
 
-    def fit(self, X, y, stats=True):
+    def fit(self, X, y):
+
+        X = np.array(X, ndmin=2)
+        if X.shape[0] == 1:
+            X = X.T
+
+        if self.constant:
+            X = np.hstack((np.ones((X.shape[0], 1)), X))
 
         if self.type == 'ols':
             self.betas = np.dot(self.pinv(X), y)
         else:
             print "regression type ({}) not supported".format(self.type)
 
-        if stats:
-            return self.predictWithStats(X, y)
-        else:
-            return self
+        self.stats = self.predictWithStats(X, y)
+        return self
 
     def predict(self, X):
         if self.betas is None:
@@ -158,18 +164,18 @@ class RegressionModel():
             return np.dot(X, self.betas)
 
     def predictWithStats(self, X, y):
-        if self.betas = is None:
+        if self.betas is None:
             print "Must fit before you can predictWithStats"
         else:
             yhat = np.dot(X, self.betas)
             residuals = y - yhat
-            SST = np.square(y - np.mean(y))
-            SSE = np.square(y - yhat)
+            SST = np.sum(np.square(y - np.mean(y)))
+            SSE = np.sum(np.square(y - yhat))
             rSq = 1 - 1.0*SSE/SST
             return yhat, residuals, rSq
 
     @classmethod
-    def pinv(X):
+    def pinv(cls, X):
         from scipy.linalg import inv
         return np.dot(inv(np.dot(X.T, X)), X.T)
 
@@ -179,23 +185,22 @@ class RegressionModel():
 # - add option to not use an instantaneous term in the kernels
 # - extend to handle multiple kernels with different maxLag, maxLead, and/or instantaneous choice
 
+# new class-based versions for working on non-RDD data
 class LModel:
 
-    def __init__(self, maxLag, maxLead=0, padding=False, mask=None):
+    def __init__(self, maxLag, maxLead=0, padding=False, mask=None, ):
         self.maxLag = maxLag
         self.maxLead = maxLead
         self.padding = padding
         self.mask = mask
 
-    # fit a linear kernel model
     def fit(self, x, y):
-        regMat, yMask = kerToReg(x, self.maxLag, self.maxLead, self.padding, self.mask)
-        yMasked = y.applyValues(lambda v: v[yMask])
-        results = RegressionModel('ols').fit(regMat, yMasked)
+        regMat, yMask = self.kerToReg(x, self.maxLag, self.maxLead, self.padding, self.mask)
+        yMasked = y[yMask]
+        results = RegressionModel().fit(regMat, yMasked)
         self.betas  = results.betas
-        self.yhat = self.yhat
-        self.residuals = results.residuals
-        self.rSq = results.rSq
+        self.stats = results.stats
+        return self
 
     @classmethod
     def getPieces(cls, a):
@@ -206,7 +211,7 @@ class LModel:
         return [np.arange(indStart[i], indStop[i]) for i in xrange(indStart.shape[0])]
 
     @classmethod
-    def kerToReg1(x, maxLag, maxLead=0, padding=False, mask=None):
+    def kerToReg1(cls, x, maxLag, maxLead=0, padding=False, mask=None):
 
         N = x.shape[0]
 
@@ -235,26 +240,24 @@ class LModel:
         yMask = np.zeros(N).astype('bool')
         if not padding:
             yInds = [idxs[maxLag:idxs.shape[0]-maxLead] for idxs in inds]
-            #yOut = np.concatenate([piece[maxLag:piece.shape[0]-maxLead] for piece in yPieces])
         else:
             yInds = inds
-            #yOut = np.concatenate([piece for piece in yPieces])
         yMask[np.concatenate(yInds)] = True
 
-        return mat, yMask
+        return mat.T, yMask
 
     @classmethod
-    def kerToReg(x, maxLag, maxLead=0, padding=False, mask=None):
+    def kerToReg(cls, x, maxLag, maxLead=0, padding=False, mask=None):
 
         x = np.array(x, ndmin=2)
 
         nkers = x.shape[0]
-        regMats, yMasks = zip(*[kerToReg1(x[i], maxLag, maxLead, padding, mask) for i in xrange(nkers)])
+        regMats, yMasks = zip(*[cls.kerToReg1(x[i], maxLag, maxLead, padding, mask) for i in xrange(nkers)])
 
-        return np.vstack(regMats), yMasks[0]
+        return np.hstack(regMats), yMasks[0]
 
 # ---------
-# Older function-based version
+# Older function-based version for RDDs
 
 # get continuous pieces of a series as denoted by a boolean mask
 def getPieces(a):
