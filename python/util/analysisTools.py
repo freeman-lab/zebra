@@ -9,7 +9,7 @@ from collections import Iterable
 from sklearn.neighbors import NearestNeighbors
 
 try:
-    from thunder import RegressionModel, Series
+    from thunder import Series
 except:
     print "WARNING: thunder could be be loaded from 'personal'"
 
@@ -131,11 +131,130 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', col
             else:
                 continue
 
-#-------------------------------------------------------------------------------------------
+# #-------------------------------------------------------------------------------------------
+# class for linear regression
+
+class RegressionModel():
+
+    def __init__(self, type='ols'):
+        self.type = type
+
+    def fit(self, X, y, stats=True):
+
+        if self.type == 'ols':
+            self.betas = np.dot(self.pinv(X), y)
+        else:
+            print "regression type ({}) not supported".format(self.type)
+
+        if stats:
+            return self.predictWithStats(X, y)
+        else:
+            return self
+
+    def predict(self, X):
+        if self.betas is None:
+            print "Must fit before you can predict"
+        else:
+            return np.dot(X, self.betas)
+
+    def predictWithStats(self, X, y):
+        if self.betas = is None:
+            print "Must fit before you can predictWithStats"
+        else:
+            yhat = np.dot(X, self.betas)
+            residuals = y - yhat
+            SST = np.square(y - np.mean(y))
+            SSE = np.square(y - yhat)
+            rSq = 1 - 1.0*SSE/SST
+            return yhat, residuals, rSq
+
+    @classmethod
+    def pinv(X):
+        from scipy.linalg import inv
+        return np.dot(inv(np.dot(X.T, X)), X.T)
+
+# #-------------------------------------------------------------------------------------------
 # functions to fit a linear kernel
 # TODO:
 # - add option to not use an instantaneous term in the kernels
 # - extend to handle multiple kernels with different maxLag, maxLead, and/or instantaneous choice
+
+class LModel:
+
+    def __init__(self, maxLag, maxLead=0, padding=False, mask=None):
+        self.maxLag = maxLag
+        self.maxLead = maxLead
+        self.padding = padding
+        self.mask = mask
+
+    # fit a linear kernel model
+    def fit(self, x, y):
+        regMat, yMask = kerToReg(x, self.maxLag, self.maxLead, self.padding, self.mask)
+        yMasked = y.applyValues(lambda v: v[yMask])
+        results = RegressionModel('ols').fit(regMat, yMasked)
+        self.betas  = results.betas
+        self.yhat = self.yhat
+        self.residuals = results.residuals
+        self.rSq = results.rSq
+
+    @classmethod
+    def getPieces(cls, a):
+        a = np.insert(a, 0, False)
+        a = np.insert(a, a.shape[0], False)
+        indStart = np.where(np.logical_and(np.logical_not(a[:-1]), a[1:]))[0]
+        indStop = np.where(np.logical_and(a[:-1], np.logical_not(a[1:])))[0]
+        return [np.arange(indStart[i], indStop[i]) for i in xrange(indStart.shape[0])]
+
+    @classmethod
+    def kerToReg1(x, maxLag, maxLead=0, padding=False, mask=None):
+
+        N = x.shape[0]
+
+        # default mask uses all values
+        if mask is None:
+            mask = np.ones(N).astype('bool')
+
+        # find continuous pieces within mask
+        inds = getPieces(mask)
+        nPieces = len(inds)
+        xPieces = [x[inds[i]] for i in xrange(nPieces)]
+
+        # if padding, add zeros for computing estimates near the ends
+        if padding:
+            leftPad = np.zeros(maxLag)
+            rightPad = np.zeros(maxLead)
+            xPieces = [np.concatenate((leftPad, piece, rightPad)) for piece in xPieces]
+
+        # create regression matrix
+        kerLen = maxLag + 1 + maxLead
+        nvals = np.array([piece.shape[0]-kerLen+1 for piece in xPieces])
+        mat = np.array([np.concatenate([xPieces[j][i:i+nvals[j]] for j in xrange(nPieces)]) for i in xrange(kerLen)])
+
+        # create mask for y-values that will be used in fitting the model
+        # if not using padding, get restriced output values
+        yMask = np.zeros(N).astype('bool')
+        if not padding:
+            yInds = [idxs[maxLag:idxs.shape[0]-maxLead] for idxs in inds]
+            #yOut = np.concatenate([piece[maxLag:piece.shape[0]-maxLead] for piece in yPieces])
+        else:
+            yInds = inds
+            #yOut = np.concatenate([piece for piece in yPieces])
+        yMask[np.concatenate(yInds)] = True
+
+        return mat, yMask
+
+    @classmethod
+    def kerToReg(x, maxLag, maxLead=0, padding=False, mask=None):
+
+        x = np.array(x, ndmin=2)
+
+        nkers = x.shape[0]
+        regMats, yMasks = zip(*[kerToReg1(x[i], maxLag, maxLead, padding, mask) for i in xrange(nkers)])
+
+        return np.vstack(regMats), yMasks[0]
+
+# ---------
+# Older function-based version
 
 # get continuous pieces of a series as denoted by a boolean mask
 def getPieces(a):
@@ -199,7 +318,7 @@ def kerToReg(x, maxLag, maxLead=0, padding=False, mask=None):
 def fitKernel(x, y, maxLag, maxLead=0, padding=False, mask=None): 
     
     regMat, yMask = kerToReg(x, maxLag, maxLead, padding, mask)
-    model = RegressionModel.load(regMat, "linear")   
+    model = thunder.RegressionModel.load(regMat, "linear")
     #TODO: when Series.selectByIndex is available, it should be used here instead of Series.applyValues
     yMasked = y.applyValues(lambda v: v[yMask])
     return model.fit(yMasked)
