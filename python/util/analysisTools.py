@@ -7,6 +7,8 @@ from itertools import product
 from copy import deepcopy
 from collections import Iterable
 from sklearn.neighbors import NearestNeighbors
+from scipy.linalg import inv
+from scipy.interpolate import splev
 
 try:
     from thunder import Series
@@ -136,9 +138,10 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', col
 
 class RegressionModel():
 
-    def __init__(self, type='ols', constant=True):
+    def __init__(self, type='ols', constant=True, regularization=None, regScale=None):
         self.type = type
-        self.constant = True
+        self.constant = constant 
+        self.betas = None
 
     def fit(self, X, y):
 
@@ -176,8 +179,81 @@ class RegressionModel():
 
     @classmethod
     def pinv(cls, X):
-        from scipy.linalg import inv
         return np.dot(inv(np.dot(X.T, X)), X.T)
+
+    @classmethod
+    def reginv(cls, X):
+        
+
+
+##--------------------------------------------------------------------------------------------
+# class for spline regression
+
+class Spline():
+
+    def __init__(self, order, nknots, placement='percentile', regularization=None, monotone=False, ext=1):
+        self.n = nknots
+        self.k = order
+        self.placement = placement
+        self.regularization = regularization
+        self.monotone = monotone
+        self.ext = ext
+        self.a = None
+
+    def fit(self, x, y):
+
+        if placement == 'percentile':
+            self.knots = self.getKnotsByPercentile(x, self.n)
+        elif placement == 'equal':
+            self.knots = self.getKnotsEqual(x, self.n)
+        else:
+            raise ValueError('placement option "{}" not recognized'.format(str(placement)))
+
+        self.knots = self.augmentKnots(self.knots, self.k)
+
+        m = self.n - 2
+        nBSplines = self.k + m
+
+        regMat = []
+        for i in xrange(nBSplines):
+            w = len(self.knots)*[0]
+            w[i] = 1
+            mat.append(splev(x, [knots, w, self.k-1], ext=1))
+        regMat = array(mat).T
+
+        if self.regularization is not None:
+            D = []
+            for j in xrange(2, nBSplines):
+                c1 = 1.0/(knots[j+self.k-2] - knots[j-1])
+                c2 = 1.0/(knots[j+self.k-1] - knots[j])
+                c3 = 1.0/(knots[j+self.k-2] - knots[j])
+                v = c3*np.array([c1, -(c1 + c2), c2])
+                D.append(np.concatenate([np.zeros(j-2), v, np.zeros(nBSplines-j-1)]))
+            D = np.array(D)
+            regMat = np.vstack([B, np.sqrt(self.regularization)*D])
+            y = np.concatenate([y, np.zeros(nBSplines-2)])
+        
+        self.a = np.dot(np.dot(inv(np.dot(B.T, B)), B.T), y)    
+        return self
+
+    def predict(self, x):
+        if self.a is None:
+            print "Must fit before you can predict"
+        else:
+            return splev(x, [self.knots, self.a, self.k-1, ext=self.ext])
+
+    @classmethod
+    def getKnotsByPercentile(cls, data, nknots):
+        return np.percentile(data, 100*np.linspace(0, 1, num=nknots))
+
+    @classmethod
+    def getKnotsEqual(cls, data, nknots):
+        return np.linspace(min(x), max(x), num=nknots)
+
+    @classmethod
+    def augmentKnots(cls, knots, k):
+        return np.concatenate([np.repeat(knots[0], k-1), knots, np.repeat(knots[-1], k-1)])
+
 
 # #-------------------------------------------------------------------------------------------
 # functions to fit a linear kernel
