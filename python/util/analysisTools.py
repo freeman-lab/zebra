@@ -138,9 +138,10 @@ def crossSectionSelect(pts, labels, inset='None', margin=0.1, limits='None', col
 
 class RegressionModel():
 
-    def __init__(self, type='ols', constant=True, regularization=None, regScale=None):
-        self.type = type
+    def __init__(self, constant=True, regz=None, regzScale=1, regScale=None):
         self.constant = constant 
+        self.R = regz 
+        self.regzScale = regScale
         self.betas = None
 
     def fit(self, X, y):
@@ -152,10 +153,10 @@ class RegressionModel():
         if self.constant:
             X = np.hstack((np.ones((X.shape[0], 1)), X))
 
-        if self.type == 'ols':
-            self.betas = np.dot(self.pinv(X), y)
-        else:
-            print "regression type ({}) not supported".format(self.type)
+        if self.regz is None:
+            self.regz = np.zeros(X.shape[1])
+
+        self.betas = np.dot(self.pinv(X, self.regzScale*self.R),  y)
 
         self.stats = self.predictWithStats(X, y)
         return self
@@ -178,8 +179,8 @@ class RegressionModel():
             return yhat, residuals, rSq
 
     @classmethod
-    def pinv(cls, X):
-        return np.dot(inv(np.dot(X.T, X)), X.T)
+    def pinv(cls, X, R):
+        return np.dot(inv(np.dot(X.T, X) + np.dot(R.T, R)), X.T)
 
 ##--------------------------------------------------------------------------------------------
 # class for spline regression
