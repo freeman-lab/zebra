@@ -181,15 +181,10 @@ class RegressionModel():
     def pinv(cls, X):
         return np.dot(inv(np.dot(X.T, X)), X.T)
 
-    @classmethod
-    def reginv(cls, X):
-        
-
-
 ##--------------------------------------------------------------------------------------------
 # class for spline regression
 
-class Spline():
+class RegressionSpline():
 
     def __init__(self, order, nknots, placement='percentile', regularization=None, monotone=False, ext=1):
         self.n = nknots
@@ -202,9 +197,9 @@ class Spline():
 
     def fit(self, x, y):
 
-        if placement == 'percentile':
+        if self.placement == 'percentile':
             self.knots = self.getKnotsByPercentile(x, self.n)
-        elif placement == 'equal':
+        elif self.placement == 'equal':
             self.knots = self.getKnotsEqual(x, self.n)
         else:
             raise ValueError('placement option "{}" not recognized'.format(str(placement)))
@@ -214,23 +209,23 @@ class Spline():
         m = self.n - 2
         nBSplines = self.k + m
 
-        regMat = []
+        B = []
         for i in xrange(nBSplines):
             w = len(self.knots)*[0]
             w[i] = 1
-            mat.append(splev(x, [knots, w, self.k-1], ext=1))
-        regMat = array(mat).T
+            B.append(splev(x, [self.knots, w, self.k-1], ext=1))
+        B = np.array(B).T
 
         if self.regularization is not None:
             D = []
             for j in xrange(2, nBSplines):
-                c1 = 1.0/(knots[j+self.k-2] - knots[j-1])
-                c2 = 1.0/(knots[j+self.k-1] - knots[j])
-                c3 = 1.0/(knots[j+self.k-2] - knots[j])
+                c1 = 1.0/(self.knots[j+self.k-2] - self.knots[j-1])
+                c2 = 1.0/(self.knots[j+self.k-1] - self.knots[j])
+                c3 = 1.0/(self.knots[j+self.k-2] - self.knots[j])
                 v = c3*np.array([c1, -(c1 + c2), c2])
                 D.append(np.concatenate([np.zeros(j-2), v, np.zeros(nBSplines-j-1)]))
             D = np.array(D)
-            regMat = np.vstack([B, np.sqrt(self.regularization)*D])
+            B = np.vstack([B, np.sqrt(self.regularization)*D])
             y = np.concatenate([y, np.zeros(nBSplines-2)])
         
         self.a = np.dot(np.dot(inv(np.dot(B.T, B)), B.T), y)    
@@ -240,7 +235,7 @@ class Spline():
         if self.a is None:
             print "Must fit before you can predict"
         else:
-            return splev(x, [self.knots, self.a, self.k-1, ext=self.ext])
+            return splev(x, [self.knots, self.a, self.k-1], ext=self.ext)
 
     @classmethod
     def getKnotsByPercentile(cls, data, nknots):
