@@ -391,11 +391,13 @@ def kerToReg(x, maxLag, maxLead=0, padding=False, mask=None):
 # fit a linear kernel model
 def fitKernel(x, y, maxLag, maxLead=0, padding=False, mask=None): 
     
+    from thunder import Regression
+
     regMat, yMask = kerToReg(x, maxLag, maxLead, padding, mask)
-    model = thunder.RegressionModel.load(regMat, "linear")
+    #model = thunder.RegressionModel.load(regMat, "linear")
     #TODO: when Series.selectByIndex is available, it should be used here instead of Series.applyValues
     yMasked = y.applyValues(lambda v: v[yMask])
-    return model.fit(yMasked)
+    return Regression('linear').fit(regMat, yMasked)
 
 #-----------------------------------------------------------------------------
 # functions to get all records with a given kmeans label
