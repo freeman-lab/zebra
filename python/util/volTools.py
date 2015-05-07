@@ -1,12 +1,14 @@
 """ file i/o tools for analyzing light sheet data"""
 
-def getStackDims(inDir):
-    """parse xml file to get dimension information of experiment.
-    Returns [x,y,z] dimensions as a list of ints
+def getStackDims(inDir, channel='ch0'):
+    """
+    :param inDir: a string representing a path to a directory containing metadata
+    :param channel: a string representing the channel of interest, default is 'ch0')
+    :return: dims, a list of integers representing the xyz dimensions of the data
     """
     import xml.etree.ElementTree as ET
 
-    dims = ET.parse(inDir+'ch0.xml')
+    dims = ET.parse(inDir+channel)
     root = dims.getroot()
 
     for info in root.findall('info'):
@@ -19,7 +21,8 @@ def getStackDims(inDir):
     return dims
 
 def getStackFreq(inDir):
-    """Get the temporal data from the Stack_frequency.txt file found in
+    """
+    Get the temporal data from the Stack_frequency.txt file found in
     directory inDir. Return volumetric sampling rate in Hz,
     total recording length in S, and total number
     of planes in a tuple.
@@ -33,8 +36,10 @@ def getStackFreq(inDir):
     return times
 
 def getStackData(rawPath, frameNo=0):
-    """Given rawPath, a path to .stack files, and frameNo, an int, load the .stack file
-    for the timepoint given by frameNo from binary and return as a numpy array with dimensions=x,y,z"""
+    """
+    Given rawPath, a path to .stack files, and frameNo, an int, load the .stack file
+    for the timepoint given by frameNo from binary and return as a numpy array with dimensions=x,y,z
+    """
 
     import numpy as np
     from string import Template
@@ -73,8 +78,8 @@ def volumeMask(vol):
     return mask, mCoords
 
 def projFigure(vol, limits, plDims=[16,10,5], zscale=5, colors='gray', title=None):
-     
-    """Display vol.max(dim) - vol.min(dim) for dims in [0,1,2]
+    """
+    Display vol.max(dim) - vol.min(dim) for dims in [0,1,2]
     Heavily adapted from Jason Wittenbach's crossSectionPlot. 
     """
     import matplotlib.pyplot as plt
