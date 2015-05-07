@@ -8,7 +8,7 @@ def getStackDims(inDir, channel='ch0'):
     """
     import xml.etree.ElementTree as ET
 
-    dims = ET.parse(inDir+channel)
+    dims = ET.parse(inDir+channel + '.xml')
     root = dims.getroot()
 
     for info in root.findall('info'):
