@@ -49,7 +49,7 @@ def getStackData(rawPath, frameNo=0, channel=0):
     from numpy import fromfile
     from string import Template
 
-    dims = getStackDims(rawPath)
+    dims = getStackDims(rawPath, channel)
     fName = Template('TM${x}_CM0_CHN${y}.stack')
     nDigits_frame = 5
     nDigits_channel = 2
