@@ -1,14 +1,15 @@
 """ file i/o tools for analyzing light sheet data"""
 
-def getStackDims(inDir, channel='ch0'):
+
+def getStackDims(inDir, channel=0):
     """
     :param inDir: a string representing a path to a directory containing metadata
-    :param channel: a string representing the channel of interest, default is 'ch0')
+    :param channel: an int representing the channel of interest, default is 0)
     :return: dims, a list of integers representing the xyz dimensions of the data
     """
     import xml.etree.ElementTree as ET
 
-    dims = ET.parse(inDir+channel + '.xml')
+    dims = ET.parse(inDir+'ch' + str(channel) + '.xml')
     root = dims.getroot()
 
     for info in root.findall('info'):
@@ -19,6 +20,7 @@ def getStackDims(inDir, channel='ch0'):
     dims = [int(float(num)) for num in dims]
 
     return dims
+
 
 def getStackFreq(inDir):
     """
@@ -35,23 +37,27 @@ def getStackFreq(inDir):
 
     return times
 
-def getStackData(rawPath, frameNo=0):
+
+def getStackData(rawPath, frameNo=0, channel=0):
     """
-    Given rawPath, a path to .stack files, and frameNo, an int, load the .stack file
-    for the timepoint given by frameNo from binary and return as a numpy array with dimensions=x,y,z
+    :param rawPath: string representing a path to a directory containing raw data
+    :param frameNo: int representing the timepoint of the data desired, default is 0
+    :param channel: int representing the channel of interest, default is 0
+    :return: dims: list of integers representing the xyz dimensions of the data
     """
 
-    import numpy as np
+    from numpy import fromfile
     from string import Template
 
     dims = getStackDims(rawPath)
-    fName = Template('TM${x}_CM0_CHN00.stack')
-    nDigits = 5
-
-    tmpFName = fName.substitute(x=str(frameNo).zfill(nDigits))
-    im = np.fromfile(rawPath + tmpFName,dtype='int16')
+    fName = Template('TM${x}_CM0_CHN${y}.stack')
+    nDigits_frame = 5
+    nDigits_channel = 2
+    tmpFName = fName.substitute(x = str(frameNo).zfill(nDigits_frame), y = str(channel).zfill(nDigits_channel))
+    im = fromfile(rawPath + tmpFName, dtype='int16')
     im = im.reshape(dims[-1::-1])
     return im
+
 
 def volumeMask(vol):
     """
@@ -76,6 +82,7 @@ def volumeMask(vol):
     mCoords = zip(x, y, z)
 
     return mask, mCoords
+
 
 def projFigure(vol, limits, plDims=[16,10,5], zscale=5, colors='gray', title=None):
     """
