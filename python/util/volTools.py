@@ -38,11 +38,11 @@ def getStackFreq(inDir):
     return times
 
 
-def getStackData(rawPath, frameNo=0, channel=0):
+def getStackData(rawPath, channel=0, frameNo=0):
     """
     :param rawPath: string representing a path to a directory containing raw data
-    :param frameNo: int representing the timepoint of the data desired, default is 0
     :param channel: int representing the channel of interest, default is 0
+    :param frameNo: int representing the timepoint of the data desired, default is 0
     :return: dims: list of integers representing the xyz dimensions of the data
     """
 
