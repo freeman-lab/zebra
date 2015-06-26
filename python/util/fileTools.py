@@ -3,7 +3,7 @@ def dirNest(path):
     :param path: string, path to some directory
     :return: dn: list of 2-tuples of strings, the result of recursively splitting the directory structure in path
     """
-    from os.path import split
+    from os.path import split, sep
     dn = []
     while path is not sep:
         tmp = split(path)
