@@ -15,7 +15,7 @@ def getExecutorMemory(driver=None):
     k2 = html.find("\n", k1+1)
     used = html[k1:k2].lstrip()
     k3 = html.find("</li>", k2)
-    total =  html[k2:k3].lstrip()
+    total = html[k2:k3].lstrip()
 
     print used + " " + total
 
