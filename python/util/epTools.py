@@ -43,16 +43,12 @@ def getSwims(ch):
     """
     
     from scipy import signal as sig
-    
-    # make smoothing kernel
-    gau = sig.gaussian(121,20)
-    gau = gau/gau.sum()
 
     # set dead time, in samples
     deadT = 80
     
-    fltch = smoothPower(ch,gau);
-    peaksT,peaksIndT = getPeaks(fltch,deadT)
+    fltch = smoothPower(ch)
+    peaksT, peaksIndT = getPeaks(fltch, deadT)
     thr = getThreshold(fltch,2600000)
     burstIndT = peaksIndT[np.where(fltch[peaksIndT] > thr[peaksIndT])]
     burstT = np.zeros(fltch.shape)
@@ -72,13 +68,26 @@ def getSwims(ch):
     starts = np.zeros(fltch.size)
     stops = np.zeros(fltch.size)
     bursts[burstIndT] = 1
-    starts[burstIndT[swimStartIndB]] = 1;
-    stops[burstIndT[swimEndIndB]] = 1;
+    starts[burstIndT[swimStartIndB]] = 1
+    stops[burstIndT[swimEndIndB]] = 1
     
     return starts, stops, thr
 
+
 # filter signal, extract power
-def smoothPower(ch,kern):
+def smoothPower(ch, kern=None):
+    """
+    subtract smoothed vector from raw vector and square to estimate swim power
+    :param ch:
+    :param kern:
+    :return:
+    """
+    from scipy import signal as sig
+
+    if not kern:
+        kern = sig.gaussian(121, 20)
+        kern = kern/kern.sum()
+
     smch = np.convolve(ch, kern, 'same')
     power = (ch - smch)**2
     fltch = np.convolve(power, kern, 'same')

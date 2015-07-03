@@ -28,17 +28,11 @@ def dirStructure(rawDir):
         chDir = dn[-2][1]
         baseDir = dn[-5][0]
 
-        regDir = join(baseDir, 'spark', expDir, expName, chDir, '', 'reg', '')
-        serDir = join(baseDir, 'spark', expDir, expName, chDir, '', 'series', '')
-        matDir = join(baseDir, 'spark', expDir, expName, chDir, '', 'mat', '')
+        outDir = join(baseDir, 'spark', expDir, expName, chDir, '')
 
     else:
-        expName = dn[-2][1]
         expDir = dn[-3][1]
         baseDir = dn[-4][0]
+        outDir = join(baseDir, 'spark', expDir, expName, '')
 
-        regDir = join(baseDir, 'spark', expDir, expName, '', 'reg', '')
-        serDir = join(baseDir, 'spark', expDir, expName, '', 'series', '')
-        matDir = join(baseDir, 'spark', expDir, expName, '', 'mat', '')
-
-    return regDir, serDir, matDir
+    return outDir
