@@ -88,8 +88,8 @@ def smoothPower(ch, kern=None):
         kern = sig.gaussian(121, 20)
         kern = kern/kern.sum()
 
-    smch = np.convolve(ch, kern, 'same')
-    power = (ch - smch)**2
+    smch = np.convolve(ch**2, kern, 'same')
+    power = (ch**2 - smch)
     fltch = np.convolve(power, kern, 'same')
     return fltch
 
