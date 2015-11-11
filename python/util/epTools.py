@@ -88,7 +88,7 @@ def smoothPower(ch, kern=None):
         kern = sig.gaussian(121, 20)
         kern = kern/kern.sum()
 
-    smch = sig.fft.convolve(ch, kern, 'same')
+    smch = sig.fftconvolve(ch, kern, 'same')
     power = (ch - smch)**2
     fltch = sig.fftconvolve(power, kern, 'same')
     return fltch
