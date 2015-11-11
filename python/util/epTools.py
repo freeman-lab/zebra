@@ -88,9 +88,9 @@ def smoothPower(ch, kern=None):
         kern = sig.gaussian(121, 20)
         kern = kern/kern.sum()
 
-    smch = np.convolve(ch, kern, 'same')
+    smch = sig.fft.convolve(ch, kern, 'same')
     power = (ch - smch)**2
-    fltch = np.convolve(power, kern, 'same')
+    fltch = sig.fftconvolve(power, kern, 'same')
     return fltch
 
 # get peaks
