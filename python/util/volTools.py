@@ -1,15 +1,19 @@
 """ file i/o tools for analyzing light sheet data"""
 
 
-def getStackDims(inDir, channel=0):
+def getStackDims(inDir):
     """
     :param inDir: a string representing a path to a directory containing metadata
-    :param channel: an int representing the channel of interest, default is 0)
     :return: dims, a list of integers representing the xyz dimensions of the data
     """
     import xml.etree.ElementTree as ET
+    from  os.path import split
+    
+    channel = 0
+    if split(inDir)[0][-2:] == '01':
+        channel = 1
 
-    dims = ET.parse(inDir+'ch' + str(channel) + '.xml')
+    dims = ET.parse(inDir + 'ch' + str(channel) + '.xml')
     root = dims.getroot()
 
     for info in root.findall('info'):
