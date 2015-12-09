@@ -84,13 +84,13 @@ def smoothPower(ch, kern=None):
     """
     from scipy import signal as sig
 
-    if not kern:
+    if kern is None:
         kern = sig.gaussian(121, 20)
         kern = kern/kern.sum()
 
-    smch = np.convolve(ch, kern, 'same')
+    smch = sig.fftconvolve(ch, kern, 'same')
     power = (ch - smch)**2
-    fltch = np.convolve(power, kern, 'same')
+    fltch = sig.fftconvolve(power, kern, 'same')
     return fltch
 
 # get peaks
