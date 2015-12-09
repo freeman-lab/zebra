@@ -96,3 +96,22 @@ def bz2decompress(compressed_fname, wipe=False, overwrite=False):
         os.remove(compressed_fname)
 
     return
+
+def stack_to_tif(stack_path):
+    """
+    :param stack_path: string, full path of .stack file to be converted to .tif
+    :return:
+    """
+
+    from os.path import split, sep
+    from numpy import fromfile
+    import volTools as volt
+    from skimage.external import tifffile as tif
+
+    dims = volt.getStackDims(split(stack_path)[0] + sep)
+
+    im = fromfile(stack_path, dtype='int16')
+    im = im.reshape(dims[-1::-1])
+
+    tif_path = stack_path.split('.')[0] + '.tif'
+    tif.imsave(tif_path, im, compress=1)
