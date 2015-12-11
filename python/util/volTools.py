@@ -42,18 +42,21 @@ def getStackFreq(inDir):
     return times
 
 
-def getStackData(rawPath, channel=0, frameNo=0):
+def getStackData(rawPath, frameNo=0):
     """
-    :param rawPath: string representing a path to a directory containing raw data
-    :param channel: int representing the channel of interest, default is 0
-    :param frameNo: int representing the timepoint of the data desired, default is 0
-    :return: dims: list of integers representing the xyz dimensions of the data
+    :rawPath: string representing a path to a directory containing raw data
+    :frameNo: int representing the timepoint of the data desired, default is 0
     """
 
     from numpy import fromfile
     from string import Template
+    from os.path import split
 
-    dims = getStackDims(rawPath, channel)
+    channel = 0
+    if split(rawPath)[0][-2:] == '01':
+        channel = 1
+    
+    dims = getStackDims(rawPath)
     fName = Template('TM${x}_CM0_CHN${y}.stack')
     nDigits_frame = 5
     nDigits_channel = 2
