@@ -1,15 +1,19 @@
 """ file i/o tools for analyzing light sheet data"""
 
 
-def getStackDims(inDir, channel=0):
+def getStackDims(inDir):
     """
     :param inDir: a string representing a path to a directory containing metadata
-    :param channel: an int representing the channel of interest, default is 0)
     :return: dims, a list of integers representing the xyz dimensions of the data
     """
     import xml.etree.ElementTree as ET
+    from  os.path import split
+    
+    channel = 0
+    if split(inDir)[0][-2:] == '01':
+        channel = 1
 
-    dims = ET.parse(inDir+'ch' + str(channel) + '.xml')
+    dims = ET.parse(inDir + 'ch' + str(channel) + '.xml')
     root = dims.getroot()
 
     for info in root.findall('info'):
@@ -38,17 +42,20 @@ def getStackFreq(inDir):
     return times
 
 
-def getStackData(rawPath, frameNo=0, channel=0):
+def getStackData(rawPath, frameNo=0):
     """
-    :param rawPath: string representing a path to a directory containing raw data
-    :param frameNo: int representing the timepoint of the data desired, default is 0
-    :param channel: int representing the channel of interest, default is 0
-    :return: dims: list of integers representing the xyz dimensions of the data
+    :rawPath: string representing a path to a directory containing raw data
+    :frameNo: int representing the timepoint of the data desired, default is 0
     """
 
     from numpy import fromfile
     from string import Template
+    from os.path import split
 
+    channel = 0
+    if split(rawPath)[0][-2:] == '01':
+        channel = 1
+    
     dims = getStackDims(rawPath)
     fName = Template('TM${x}_CM0_CHN${y}.stack')
     nDigits_frame = 5
@@ -57,6 +64,15 @@ def getStackData(rawPath, frameNo=0, channel=0):
     im = fromfile(rawPath + tmpFName, dtype='int16')
     im = im.reshape(dims[-1::-1])
     return im
+
+def vidEmbed(fname, mimetype):
+    """Load the video in the file `fname`, with given mimetype, and display as HTML5 video.
+    Credit: Fernando Perez
+    """
+    from IPython.display import HTML
+    video_encoded = open(fname, "rb").read().encode("base64")
+    video_tag = '<video controls alt="test" src="data:video/{0};base64,{1}">'.format(mimetype, video_encoded)
+    return HTML(data=video_tag)
 
 
 def volumeMask(vol):
