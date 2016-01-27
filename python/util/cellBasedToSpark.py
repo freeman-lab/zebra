@@ -4,7 +4,7 @@
 # interactive version of the conversion
 
 from scipy.io import loadmat
-from numpy import array, hstack, fromfile, float32, double, squeeze, reshape
+from numpy import array, hstack, fromfile, float32, double, squeeze, reshape, save
 from json import dump
 from os.path import realpath, expanduser
 
@@ -49,27 +49,30 @@ def cellBasedToSpark(readPath, writePath, suffix=''):
     data = _getDataFromStackf(readPath, 'cell_resp', suffix)
     data = reshape(data, (ncells, ntimes), order='F')
 
-    combined = hstack((coords, data))
-
     outputFile = writePath + 'data.bin'
     print "writing {}".format(outputFile)
     try:
-        combined.astype(double).tofile(outputFile)
+        data.astype(double).tofile(outputFile)
     except IOError:
         raise ValueError("cannot open file {}".format(outputFile))
 
-    jsonData = {"valuetype" : "float",
-                "keytype" : "float",
-                "nvalues" : int(ntimes),
-                "nkeys": 3}
+    jsonData = {"dtype" : "float",
+                "shape" : int(ntimes)}
     jsonFile = writePath + 'conf.json'
     print "writing {}".format(jsonFile)
     try:
         jsonFid = open(jsonFile, 'w')
     except IOError:
-        raise ValueError("cannot open file {}".format(outputFile))
+        raise ValueError("cannot open file {}".format(jsonFile))
     dump(jsonData, jsonFid, indent=3)
     jsonFid.close()
+
+    coordFile = writePath + 'coords.npy'
+    print "writing {}".format(jsonFile)
+    try:
+        save(coordFile, coords)
+    except IOError:
+        raise ValueError("cannot open file {}".format(coordFile))
 
 
 if __name__ == "__main__":
