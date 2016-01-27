@@ -1,12 +1,19 @@
 """ file i/o tools for analyzing light sheet data"""
 
+
 def getStackDims(inDir):
-    """parse xml file to get dimension information of experiment.
-    Returns [x,y,z] dimensions as a list of ints
+    """
+    :param inDir: a string representing a path to a directory containing metadata
+    :return: dims, a list of integers representing the xyz dimensions of the data
     """
     import xml.etree.ElementTree as ET
+    from  os.path import split
+    
+    channel = 0
+    if split(inDir)[0][-2:] == '01':
+        channel = 1
 
-    dims = ET.parse(inDir+'ch0.xml')
+    dims = ET.parse(inDir + 'ch' + str(channel) + '.xml')
     root = dims.getroot()
 
     for info in root.findall('info'):
@@ -18,8 +25,10 @@ def getStackDims(inDir):
 
     return dims
 
+
 def getStackFreq(inDir):
-    """Get the temporal data from the Stack_frequency.txt file found in
+    """
+    Get the temporal data from the Stack_frequency.txt file found in
     directory inDir. Return volumetric sampling rate in Hz,
     total recording length in S, and total number
     of planes in a tuple.
@@ -32,21 +41,39 @@ def getStackFreq(inDir):
 
     return times
 
+
 def getStackData(rawPath, frameNo=0):
-    """Given rawPath, a path to .stack files, and frameNo, an int, load the .stack file
-    for the timepoint given by frameNo from binary and return as a numpy array with dimensions=x,y,z"""
+    """
+    :rawPath: string representing a path to a directory containing raw data
+    :frameNo: int representing the timepoint of the data desired, default is 0
+    """
 
-    import numpy as np
+    from numpy import fromfile
     from string import Template
+    from os.path import split
 
+    channel = 0
+    if split(rawPath)[0][-2:] == '01':
+        channel = 1
+    
     dims = getStackDims(rawPath)
-    fName = Template('TM${x}_CM0_CHN00.stack')
-    nDigits = 5
-
-    tmpFName = fName.substitute(x=str(frameNo).zfill(nDigits))
-    im = np.fromfile(rawPath + tmpFName,dtype='int16')
+    fName = Template('TM${x}_CM0_CHN${y}.stack')
+    nDigits_frame = 5
+    nDigits_channel = 2
+    tmpFName = fName.substitute(x = str(frameNo).zfill(nDigits_frame), y = str(channel).zfill(nDigits_channel))
+    im = fromfile(rawPath + tmpFName, dtype='int16')
     im = im.reshape(dims[-1::-1])
     return im
+
+def vidEmbed(fname, mimetype):
+    """Load the video in the file `fname`, with given mimetype, and display as HTML5 video.
+    Credit: Fernando Perez
+    """
+    from IPython.display import HTML
+    video_encoded = open(fname, "rb").read().encode("base64")
+    video_tag = '<video controls alt="test" src="data:video/{0};base64,{1}">'.format(mimetype, video_encoded)
+    return HTML(data=video_tag)
+
 
 def volumeMask(vol):
     """
@@ -72,9 +99,10 @@ def volumeMask(vol):
 
     return mask, mCoords
 
+
 def projFigure(vol, limits, plDims=[16,10,5], zscale=5, colors='gray', title=None):
-     
-    """Display vol.max(dim) - vol.min(dim) for dims in [0,1,2]
+    """
+    Display vol.max(dim) - vol.min(dim) for dims in [0,1,2]
     Heavily adapted from Jason Wittenbach's crossSectionPlot. 
     """
     import matplotlib.pyplot as plt
